@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PCIC WFH Attendance Portal | Daily Time Record (DTR)</title>
+  <meta name="description" content="Philippine Crop Insurance Corporation (PCIC) Work From Home Daily Time Record (DTR) Web App with real-time Google Sheets synchronization.">
+  
+  <!-- Mobile & PWA Optimization -->
+  <meta name="theme-color" content="#059669">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PCIC WFH">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+
+  <!-- Modern Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- App Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="theme-dark">
+
+  <!-- Notification Toast Container -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  <!-- Header Section -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-wrapper">
+        <div class="logo-shield">
+          <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" class="pcic-icon">
+            <path d="M24 4L6 12V22C6 33.1 13.7 43.4 24 46C34.3 43.4 42 33.1 42 22V12L24 4Z" fill="url(#pcic-grad)" />
+            <path d="M24 10L10 16.5V23.5C10 32 15.8 39.8 24 42C32.2 39.8 38 32 38 23.5V16.5L24 10Z" fill="#064e3b" opacity="0.6"/>
+            <!-- Plant Sprout Icon -->
+            <path d="M24 34V20M24 20C24 16.5 21 14 17 15C16.5 19 19.5 22 24 22M24 25C24 22 27 19.5 31 20.5C31.5 24.5 28.5 27.5 24 27.5" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <defs>
+              <linearGradient id="pcic-grad" x1="6" y1="4" x2="42" y2="46" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#059669"/>
+                <stop offset="1" stop-color="#047857"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <div class="brand-title-row">
+            <h1>PHILIPPINE CROP INSURANCE CORPORATION</h1>
+            <span class="badge-dept">WFH PORTAL</span>
+          </div>
+          <p class="brand-sub">Daily Time Record (DTR) &amp; Google Sheets Attendance Logger</p>
+        </div>
+      </div>
+
+      <!-- Live Clock & Header Controls -->
+      <div class="header-controls">
+        <div class="live-clock-card" id="clock-card">
+          <div class="clock-time" id="digital-clock">--:--:-- --</div>
+          <div class="clock-date-row">
+            <span class="clock-date" id="current-date">Loading date...</span>
+            <span class="tz-badge"><i class="fa-solid fa-satellite"></i> PHT (GMT+8)</span>
+          </div>
+        </div>
+
+        <div class="header-action-buttons">
+          <button id="btn-install-app" class="btn-icon-labeled btn-install-app" title="Install PCIC App on your phone">
+            <i class="fa-solid fa-mobile-screen-button"></i>
+            <span class="btn-label">Install App</span>
+          </button>
+
+          <button id="btn-sync-now" class="btn-icon-labeled" title="Synchronize pending records with Google Sheets">
+            <i class="fa-solid fa-arrows-rotate" id="sync-spinner"></i>
+            <span class="btn-label" id="sync-status-label">Sync</span>
+          </button>
+          
+          <button id="btn-settings-toggle" class="btn-icon" title="Google Sheets Configuration">
+            <i class="fa-solid fa-gear"></i>
+          </button>
+          
+          <button id="btn-theme-toggle" class="btn-icon" title="Toggle Light / Dark Mode">
+            <i class="fa-solid fa-moon" id="theme-icon"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Live Status Bar -->
+  <section class="status-ribbon">
+    <div class="status-ribbon-container">
+      <div class="status-pill">
+        <i class="fa-solid fa-user-clock text-amber" id="status-icon"></i>
+        <span>Status: <strong id="kpi-current-status" class="text-amber">NOT TIMED IN</strong></span>
+      </div>
+      <div class="status-pill">
+        <i class="fa-solid fa-stopwatch text-blue"></i>
+        <span>Session Duration: <strong id="kpi-work-duration">00h 00m 00s</strong></span>
+      </div>
+      <div class="status-pill">
+        <i class="fa-solid fa-cloud-arrow-up text-emerald" id="cloud-status-icon"></i>
+        <span id="cloud-status-text">Google Sheets Connected</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Simplified Layout -->
+  <main class="simplified-layout">
+
+    <!-- ATTENDANCE SUBMISSION FORM CARD -->
+    <section class="form-container-card glass-card">
+      <div class="card-header">
+        <div class="card-title-group">
+          <span class="section-badge"><i class="fa-solid fa-pen-to-square"></i> Attendance Form</span>
+          <h2>Log Your Daily Work Hours</h2>
+        </div>
+        <div class="cloud-indicator-badge" id="sheet-quick-indicator">
+          <i class="fa-solid fa-circle-check text-emerald"></i>
+          <span id="quick-sheet-text">Google Sheets Sync Active</span>
+        </div>
+      </div>
+
+      <form id="attendance-form" class="clean-form">
+
+        <!-- Row 1: Employee ID & Name -->
+        <div class="form-row form-grid-2">
+          <div class="form-group">
+            <label for="emp-id">
+              <i class="fa-regular fa-id-badge text-emerald"></i> Employee ID / Plantilla No.
+            </label>
+            <input type="text" id="emp-id" placeholder="e.g. PCIC-2024-0042" required autocomplete="username">
+            <span class="input-hint">Saved on this device automatically</span>
+          </div>
+
+          <div class="form-group">
+            <label for="emp-name">
+              <i class="fa-regular fa-user text-emerald"></i> Full Name (Last, First M.I.)
+            </label>
+            <input type="text" id="emp-name" placeholder="e.g. Dela Cruz, Juan M." required autocomplete="name">
+            <span class="input-hint">Official personnel name</span>
+          </div>
+        </div>
+
+        <!-- Row 2: Department & Work Arrangement -->
+        <div class="form-row form-grid-2">
+          <div class="form-group">
+            <label for="emp-dept">
+              <i class="fa-solid fa-building-user text-emerald"></i> Regional Office / Department
+            </label>
+            <select id="emp-dept" required>
+              <option value="" disabled selected>-- Select Regional Office / Dept --</option>
+              <optgroup label="PCIC Head Office">
+                <option value="Head Office - Office of the President">Office of the President (OP)</option>
+                <option value="Head Office - Actuarial & Research">Actuarial &amp; Research Dept.</option>
+                <option value="Head Office - Claims & Adjustment">Claims &amp; Adjustment Dept.</option>
+                <option value="Head Office - Underwriting Dept.">Underwriting Dept.</option>
+                <option value="Head Office - Finance & Admin (AFD)">Administrative &amp; Finance (AFD)</option>
+                <option value="Head Office - Information Technology (ITD)">Information Technology (ITD)</option>
+                <option value="Head Office - Planning & Management (PMD)">Planning &amp; Management (PMD)</option>
+              </optgroup>
+              <optgroup label="PCIC Regional Offices">
+                <option value="Regional Office I (Ilocos)">Regional Office I (Ilocos)</option>
+                <option value="Regional Office II (Cagayan Valley)">Regional Office II (Cagayan Valley)</option>
+                <option value="Regional Office III (Central Luzon)">Regional Office III (Central Luzon)</option>
+                <option value="Regional Office IV (Southern Tagalog)">Regional Office IV (Southern Tagalog)</option>
+                <option value="Regional Office V (Bicol Region)">Regional Office V (Bicol Region)</option>
+                <option value="Regional Office VI (Western Visayas)">Regional Office VI (Western Visayas)</option>
+                <option value="Regional Office VII (Central Visayas)">Regional Office VII (Central Visayas)</option>
+                <option value="Regional Office VIII (Eastern Visayas)">Regional Office VIII (Eastern Visayas)</option>
+                <option value="Regional Office IX (Zamboanga Peninsula)">Regional Office IX (Zamboanga)</option>
+                <option value="Regional Office X (Northern Mindanao)">Regional Office X (Northern Mindanao)</option>
+                <option value="Regional Office XI (Davao Region)">Regional Office XI (Davao Region)</option>
+                <option value="Regional Office XII (SOCCSKSARGEN)">Regional Office XII (SOCCSKSARGEN)</option>
+              </optgroup>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="work-location">
+              <i class="fa-solid fa-house-laptop text-emerald"></i> Work Arrangement
+            </label>
+            <select id="work-location" required>
+              <option value="Work From Home (WFH)" selected>Work From Home (WFH)</option>
+              <option value="Remote / Telecommuting">Remote / Telecommuting</option>
+              <option value="Field Work / Damage Assessment">Field Work / Damage Assessment</option>
+              <option value="Regional Office Satellite">Regional Office Satellite</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Row 3: Action Type Selection (Mandatory) -->
+        <div class="form-row">
+          <div class="form-group action-selection-group">
+            <label for="action-type">
+              <i class="fa-solid fa-clock-rotate-left text-emerald"></i>
+              <strong>Action Type / Log Category:</strong>
+            </label>
+            <div class="action-select-wrapper">
+              <select id="action-type" required class="action-dropdown">
+                <option value="Time In (AM In)" selected>🌅 TIME IN (AM In) — Start Work Day</option>
+                <option value="Break Out (Lunch Out)">🥪 BREAK OUT (Lunch Out) — Midday Break</option>
+                <option value="Break In (Lunch In)">☕ BREAK IN (Lunch In) — Resume Afternoon Duty</option>
+                <option value="Time Out (PM Out)">🌙 TIME OUT (PM Out) — End Work Day</option>
+              </select>
+            </div>
+            <span class="input-hint">Select the action you want to log, then click the Submit button below.</span>
+          </div>
+        </div>
+
+        <!-- Row 4: Daily Accomplishments / Remarks -->
+        <div class="form-row">
+          <div class="form-group accomplishments-group">
+            <div class="accomplishment-header-row">
+              <label for="accomplishments">
+                <i class="fa-solid fa-list-check text-emerald"></i> Daily Accomplishment Report / Deliverables
+              </label>
+              <span class="char-count" id="accomplishment-hint">Required for Time Out</span>
+            </div>
+            <textarea id="accomplishments" rows="3" placeholder="Summarize tasks accomplished today (e.g., processed crop insurance claims, attended departmental virtual meeting, reconciled registries)..."></textarea>
+            
+            <!-- Quick Tag Shortcuts -->
+            <div class="quick-tags-wrapper">
+              <span class="quick-tags-label"><i class="fa-solid fa-bolt"></i> Quick Insert:</span>
+              <button type="button" class="quick-tag" data-tag="Processed crop insurance claims verification">Claims Processing</button>
+              <button type="button" class="quick-tag" data-tag="Conducted remote damage assessment & policy review">Damage Assessment</button>
+              <button type="button" class="quick-tag" data-tag="Attended departmental coordination virtual meeting">Virtual Meeting</button>
+              <button type="button" class="quick-tag" data-tag="Updated farmer beneficiaries database & registries">Beneficiary Registry</button>
+              <button type="button" class="quick-tag" data-tag="Prepared and reconciled daily DTR accomplishments">DTR Reconciliation</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 5: SUBMIT BUTTON -->
+        <div class="form-row submit-row">
+          <button type="submit" id="btn-submit-attendance" class="btn-primary btn-submit-large">
+            <i class="fa-solid fa-paper-plane" id="submit-icon"></i>
+            <span id="submit-btn-text">Submit Attendance Record</span>
+          </button>
+        </div>
+
+      </form>
+    </section>
+
+    <!-- ATTENDANCE HISTORY & LOGS TABLE CARD -->
+    <section class="history-container-card glass-card">
+      <div class="table-header-toolbar">
+        <div class="toolbar-title-group">
+          <span class="section-badge"><i class="fa-solid fa-list-ul"></i> Activity Logs</span>
+          <h2>Today's Attendance History</h2>
+        </div>
+
+        <div class="toolbar-actions">
+          <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="log-search-input" placeholder="Search logs...">
+          </div>
+
+          <button id="btn-print-dtr" class="btn-secondary" title="Civil Service Form 48 Printable View">
+            <i class="fa-solid fa-print"></i>
+            <span>CSC Form 48</span>
+          </button>
+
+          <button id="btn-export-csv" class="btn-secondary" title="Export records to CSV">
+            <i class="fa-solid fa-file-csv"></i>
+            <span>Export CSV</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Filter tabs -->
+      <div class="filter-strip">
+        <div class="filter-tabs">
+          <button class="filter-tab active" data-filter="all">All Logs (<span id="count-all">0</span>)</button>
+          <button class="filter-tab" data-filter="today">Today Only (<span id="count-today">0</span>)</button>
+          <button class="filter-tab" data-filter="pending">Pending Sync (<span id="count-pending">0</span>)</button>
+        </div>
+      </div>
+
+      <!-- Table Container -->
+      <div class="table-responsive">
+        <table class="dtr-table" id="dtr-table">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Employee Name &amp; ID</th>
+              <th>Action Logged</th>
+              <th>Department</th>
+              <th>Accomplishment Summary</th>
+              <th>Sync Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="dtr-table-body">
+            <!-- Dynamically populated rows -->
+          </tbody>
+        </table>
+
+        <!-- Empty State -->
+        <div class="empty-state hidden" id="table-empty-state">
+          <div class="empty-icon-wrap">
+            <i class="fa-regular fa-clipboard"></i>
+          </div>
+          <h3>No Attendance Records Yet</h3>
+          <p>Fill in your employee credentials above, choose an Action Type, and click <strong>Submit Attendance Record</strong>.</p>
+        </div>
+      </div>
+
+      <!-- Table Footer -->
+      <div class="table-card-footer">
+        <span class="footer-records-info" id="footer-records-info">Showing 0 entries</span>
+        <button id="btn-clear-history" class="btn-text-danger" title="Clear local browser records">
+          <i class="fa-regular fa-trash-can"></i> Clear Local Cache
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============================================================== -->
+  <!-- MODAL: GOOGLE SHEETS SETUP & SETTINGS                          -->
+  <!-- ============================================================== -->
+  <div class="modal-backdrop hidden" id="settings-modal" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <i class="fa-solid fa-cloud-arrow-up text-emerald"></i>
+          <h3>Google Sheets Integration &amp; App Settings</h3>
+        </div>
+        <button type="button" class="btn-close-modal" id="btn-close-settings" aria-label="Close settings">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-desc">
+          Connected directly to your official <strong>PCIC Google Sheet</strong>. All attendance records are synced to your spreadsheet in real-time.
+        </p>
+
+        <div class="settings-form-group">
+          <label for="apps-script-url">
+            <strong>Google Apps Script Web App URL:</strong>
+          </label>
+          <div class="input-with-button">
+            <input type="url" id="apps-script-url"
+              value="https://script.google.com/macros/s/AKfycbwfdZyOirEX1Hgwn7KZ5EV8JCyV3YX5fY2__0kla_vDXYEcy8ENOtuuaqTzKdddYUbh-g/exec"
+              placeholder="https://script.google.com/macros/s/AKfycb.../exec" spellcheck="false">
+            <button type="button" id="btn-test-connection" class="btn-primary">
+              <i class="fa-solid fa-plug"></i> Test Connection
+            </button>
+          </div>
+          <span class="input-note">
+            Must end in <code>/exec</code> and deployment access set to <em>"Anyone"</em>.
+          </span>
+        </div>
+
+        <!-- Preferences -->
+        <div class="preferences-box">
+          <h4>Preferences</h4>
+          <label class="toggle-control">
+            <input type="checkbox" id="pref-sound" checked>
+            <span class="toggle-slider"></span>
+            <span class="toggle-label"><i class="fa-solid fa-volume-high"></i> Play audio confirmation chime on submit</span>
+          </label>
+          <label class="toggle-control">
+            <input type="checkbox" id="pref-autosync" checked>
+            <span class="toggle-slider"></span>
+            <span class="toggle-label"><i class="fa-solid fa-cloud-arrow-up"></i> Auto-sync immediately when clicking submit</span>
+          </label>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" id="btn-cancel-settings">Cancel</button>
+        <button type="button" class="btn-primary" id="btn-save-settings">
+          <i class="fa-solid fa-check"></i> Save &amp; Apply Settings
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- MODAL: PRINTABLE CIVIL SERVICE CSC FORM 48 DTR PREVIEW        -->
+  <!-- ============================================================== -->
+  <div class="modal-backdrop hidden" id="print-modal" role="dialog" aria-modal="true">
+    <div class="modal-card print-modal-card">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <i class="fa-solid fa-file-invoice text-emerald"></i>
+          <h3>Civil Service Form No. 48 - Daily Time Record</h3>
+        </div>
+        <div class="print-modal-buttons">
+          <button type="button" class="btn-primary" id="btn-trigger-print">
+            <i class="fa-solid fa-print"></i> Print / Save as PDF
+          </button>
+          <button type="button" class="btn-close-modal" id="btn-close-print">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="modal-body printable-body" id="print-area">
+        <div class="csc-form-container">
+          <div class="csc-header">
+            <div class="csc-form-no">Civil Service Form No. 48</div>
+            <div class="csc-agency">PHILIPPINE CROP INSURANCE CORPORATION</div>
+            <div class="csc-title">DAILY TIME RECORD</div>
+            <div class="csc-subtitle">(Work From Home &amp; Alternative Work Arrangement)</div>
+          </div>
+
+          <div class="csc-employee-info">
+            <div class="csc-info-row">
+              <span class="csc-info-label">Name:</span>
+              <span class="csc-info-value" id="print-emp-name">Dela Cruz, Juan M.</span>
+            </div>
+            <div class="csc-info-row">
+              <span class="csc-info-label">Plantilla / ID No:</span>
+              <span class="csc-info-value" id="print-emp-id">PCIC-2024-0042</span>
+            </div>
+            <div class="csc-info-row">
+              <span class="csc-info-label">Department / Station:</span>
+              <span class="csc-info-value" id="print-emp-dept">Head Office - ITD</span>
+            </div>
+            <div class="csc-info-row">
+              <span class="csc-info-label">For the Month of:</span>
+              <span class="csc-info-value" id="print-month-year">October 2026</span>
+            </div>
+            <div class="csc-info-row">
+              <span class="csc-info-label">Official Regular Hours for Arrival &amp; Departure:</span>
+              <span class="csc-info-value">8:00 AM - 5:00 PM</span>
+            </div>
+          </div>
+
+          <!-- DTR Table -->
+          <table class="csc-table" id="csc-table">
+            <thead>
+              <tr>
+                <th rowspan="2" class="col-day">Day</th>
+                <th colspan="2">A. M.</th>
+                <th colspan="2">P. M.</th>
+                <th colspan="2">Undertime</th>
+                <th rowspan="2">Accomplishment / Remarks</th>
+              </tr>
+              <tr>
+                <th>Arrival</th>
+                <th>Departure</th>
+                <th>Arrival</th>
+                <th>Departure</th>
+                <th>Hours</th>
+                <th>Min</th>
+              </tr>
+            </thead>
+            <tbody id="csc-table-body">
+              <!-- Dynamically populated rows 1 to 31 -->
+            </tbody>
+          </table>
+
+          <div class="csc-cert-text">
+            I certify on my honor that the above is a true and correct report of the hours of work performed, record of which was made daily at the time of arrival and departure from office / official WFH duty station.
+          </div>
+
+          <div class="csc-signatures">
+            <div class="sig-block">
+              <div class="sig-line"></div>
+              <div class="sig-name" id="print-sig-emp">Employee Signature</div>
+            </div>
+            <div class="sig-block">
+              <div class="sig-line"></div>
+              <div class="sig-name">Verified as to prescribed office hours:</div>
+              <div class="sig-role">Division Chief / Department Head</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- MODAL: MOBILE PHONE INSTALLATION GUIDE                        -->
+  <!-- ============================================================== -->
+  <div class="modal-backdrop hidden" id="install-modal" role="dialog" aria-modal="true">
+    <div class="modal-card install-modal-card">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <i class="fa-solid fa-mobile-screen-button text-emerald"></i>
+          <h3>Install PCIC WFH on Mobile Phone</h3>
+        </div>
+        <button type="button" class="btn-close-modal" id="btn-close-install" aria-label="Close modal">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div class="install-hero">
+          <div class="install-app-icon">
+            <img src="icons/icon-192.png" alt="PCIC WFH App Icon" width="72" height="72">
+          </div>
+          <div class="install-hero-text">
+            <h4>PCIC WFH Attendance Portal</h4>
+            <p>Install as a standalone home screen app on your Android or iPhone. Fast access, works offline, and no browser address bar.</p>
+          </div>
+        </div>
+
+        <!-- Android Direct Prompt Button (Shown if browser supports it) -->
+        <div class="pwa-prompt-container hidden" id="pwa-direct-install-box">
+          <button type="button" id="btn-trigger-pwa-install" class="btn-primary btn-submit-large">
+            <i class="fa-solid fa-download"></i>
+            <span>Add to Phone Home Screen Now</span>
+          </button>
+        </div>
+
+        <!-- Step-by-Step Instructions Tabs -->
+        <div class="device-guides-container">
+          <!-- Android Guide -->
+          <div class="device-guide-card">
+            <div class="guide-platform-header">
+              <i class="fa-brands fa-android text-emerald"></i>
+              <strong>Android (Chrome, Edge, Samsung Internet)</strong>
+            </div>
+            <ol class="phone-steps-list">
+              <li>Open this website in <strong>Google Chrome</strong> or your mobile browser.</li>
+              <li>Tap the <strong>three dots menu (⋮)</strong> in the top-right corner.</li>
+              <li>Select <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.</li>
+              <li>Tap <strong>Install</strong> to confirm. The PCIC WFH icon will appear on your phone's home screen!</li>
+            </ol>
+          </div>
+
+          <!-- iOS / iPhone Guide -->
+          <div class="device-guide-card">
+            <div class="guide-platform-header">
+              <i class="fa-brands fa-apple text-emerald"></i>
+              <strong>iPhone / iPad (Apple Safari)</strong>
+            </div>
+            <ol class="phone-steps-list">
+              <li>Open this website in <strong>Safari</strong> on your iPhone.</li>
+              <li>Tap the <strong>Share</strong> button (the square with an arrow pointing up <i class="fa-solid fa-arrow-up-from-bracket"></i>) at the bottom toolbar.</li>
+              <li>Scroll down and tap <strong>"Add to Home Screen"</strong> (<i class="fa-regular fa-square-plus"></i>).</li>
+              <li>Tap <strong>Add</strong> at the top right. You can now launch it directly from your iPhone home screen!</li>
+            </ol>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-primary" id="btn-done-install">Got It!</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- App JavaScript Core -->
+  <script src="app.js"></script>
+</body>
+</html>
